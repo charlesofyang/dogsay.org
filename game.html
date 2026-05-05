@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DogSay — Arena</title>
+<link href="https://fonts.googleapis.com/css2?family=Righteous&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sky-top:    #4A90D9;
+  --sky-mid:    #7AB8F0;
+  --sky-low:    #A8D4F5;
+  --grass-far:  #5A8A3C;
+  --grass-mid:  #6AAE45;
+  --grass-near: #7DC452;
+  --grass-fg:   #8FD460;
+  --tree-trunk: #8B5E3C;
+  --tree-leaf:  #3D7A2A;
+  --tree-leaf2: #4A9232;
+  --tree-shad:  #2D5C1E;
+  --path-col:   #C8A96E;
+  --yellow:     #FFD93D;
+  --amber:      #FF9900;
+  --danger:     #FF4757;
+  --success:    #4ADE80;
+  --navy:       #0A1628;
+  --text:       #F0F4FF;
+  --muted:      rgba(240,244,255,0.5);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+
+body {
+  font-family:'DM Sans',sans-serif;
+  background:var(--navy);
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+}
+
+/* ── TOP BAR ── */
+.top-bar {
+  padding:10px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;
+  background:rgba(10,22,40,0.95);
+  border-bottom:1px solid rgba(255,217,61,0.15);
+}
+
+.logo {
+  font-family:'Righteous',cursive;
+  font-size:20px;
+  color:var(--text);
+}
+.logo em{color:var(--yellow);font-style:normal;}
+
+.phase-pills {
+  display:flex;
+  gap:6px;
+}
+
+.pill {
+  padding:4px 12px;
+  border-radius:50px;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:0.5px;
+  border:1px solid rgba(255,255,255,0.15);
+  color:var(--muted);
+  transition:all 0.3s;
+}
+
+.pill.active {
+  background:var(--yellow);
+  border-color:var(--yellow);
+  color:var(--navy);
+}
+
+.pill.done {
+  background:rgba(255,217,61,0.15);
+  border-color:rgba(255,217,61,0.3);
+  color:var(--yellow);
+}
+
+/* ── MAIN ARENA ── */
+.arena-wrap {
+  flex:1;
+  position:relative;
+  overflow:hidden;
+}
+
+/* ── SVG WORLD ── */
+#world-svg {
+  width:100%;
+  height:100%;
+  display:block;
+}
+
+/* ── BARK METER — inside camera strip ── */
+.bark-meter {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:1;
+}
+
+.bark-icon {
+  font-size:16px;
+  flex-shrink:0;
+}
+
+.bark-track {
+  flex:1;
+  height:6px;
+  background:rgba(255,255,255,0.1);
+  border-radius:50px;
+  overflow:hidden;
+}
+
+.bark-fill {
+  height:100%;
+  border-radius:50px;
+  background:linear-gradient(90deg, #1A5EBE, #FFD93D, #FF9900);
+  width:0%;
+  transition:width 0.06s linear;
+}
+
+.bark-label {
+  font-size:11px;
+  font-weight:600;
+  color:var(--yellow);
+  min-width:24px;
+  text-align:right;
+}
+
+/* ── INSTRUCTION — small overlay at very bottom of arena ── */
+.instruction {
+  position:absolute;
+  bottom:8px;
+  left:50%;
+  transform:translateX(-50%);
+  width:calc(100% - 24px);
+  max-width:400px;
+  background:rgba(10,22,40,0.78);
+  border:1px solid rgba(255,217,61,0.15);
+  border-radius:8px;
+  padding:7px 14px;
+  text-align:center;
+  font-size:12px;
+  font-weight:500;
+  color:var(--text);
+  backdrop-filter:blur(6px);
+  transition:all 0.3s;
+  pointer-events:none;
+}
+
+/* ── COUNTDOWN ── */
+.cd-badge {
+  position:absolute;
+  top:12px;
+  right:12px;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  background:rgba(10,22,40,0.85);
+  border:2px solid rgba(255,217,61,0.3);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Righteous',cursive;
+  font-size:16px;
+  color:var(--yellow);
+  backdrop-filter:blur(8px);
+  transition:color 0.3s, border-color 0.3s;
+}
+
+.cd-badge.urgent {
+  color:var(--danger);
+  border-color:var(--danger);
+  animation:cd-pulse 0.5s ease infinite alternate;
+}
+
+@keyframes cd-pulse {
+  to { transform:scale(1.08); }
+}
+
+/* ── VICTORY OVERLAY ── */
+.victory {
+  position:absolute;
+  inset:0;
+  background:rgba(74,222,128,0.12);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.4s;
+}
+
+.victory.show { opacity:1; }
+
+.victory-icon {
+  font-size:80px;
+  animation:v-pop 0.5s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+.victory-txt {
+  font-family:'Righteous',cursive;
+  font-size:24px;
+  color:var(--success);
+  margin-top:8px;
+  text-shadow:0 2px 16px rgba(74,222,128,0.5);
+}
+
+@keyframes v-pop {
+  0%{transform:scale(0);}
+  100%{transform:scale(1);}
+}
+
+/* ── RESULT PANEL ── */
+.result-panel {
+  position:absolute;
+  inset:0;
+  background:rgba(10,22,40,0.96);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity 0.4s;
+}
+
+.result-panel.show {
+  opacity:1;
+  pointer-events:all;
+}
+
+.result-icon { font-size:64px; margin-bottom:12px; animation:v-pop 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+.result-title { font-family:'Righteous',cursive; font-size:24px; margin-bottom:6px; }
+.result-sub { font-size:14px; color:var(--muted); text-align:center; line-height:1.6; margin-bottom:20px; max-width:280px; }
+
+.result-stats {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  width:100%;
+  max-width:280px;
+  margin-bottom:20px;
+}
+
+.stat-box {
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,217,61,0.15);
+  border-radius:12px;
+  padding:12px;
+  text-align:center;
+}
+
+.stat-n { font-family:'Righteous',cursive; font-size:28px; color:var(--yellow); }
+.stat-l { font-size:11px; color:var(--muted); margin-top:2px; }
+
+.btn-again {
+  width:100%;
+  max-width:280px;
+  padding:14px;
+  border-radius:50px;
+  background:var(--yellow);
+  color:var(--navy);
+  border:none;
+  font-family:'DM Sans',sans-serif;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  margin-bottom:10px;
+  transition:all 0.2s;
+}
+.btn-again:hover{background:#FFE566;}
+.btn-again:active{transform:scale(0.97);}
+
+/* ── SETUP ── */
+.setup-panel {
+  position:absolute;
+  inset:0;
+  background:rgba(10,22,40,0.97);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+.setup-icon { font-size:56px; margin-bottom:14px; animation:paw-b 2s ease-in-out infinite; }
+@keyframes paw-b{0%,100%{transform:rotate(-8deg);}50%{transform:rotate(8deg);}}
+
+.setup-h { font-family:'Righteous',cursive; font-size:26px; margin-bottom:6px; text-align:center; }
+.setup-h em { color:var(--yellow); font-style:normal; }
+.setup-sub { font-size:14px; color:var(--muted); text-align:center; margin-bottom:24px; line-height:1.6; max-width:300px; }
+
+.setup-form { width:100%; max-width:320px; }
+
+.inp {
+  width:100%;
+  background:rgba(255,255,255,0.07);
+  border:1.5px solid rgba(255,217,61,0.2);
+  border-radius:12px;
+  padding:13px 16px;
+  font-family:'DM Sans',sans-serif;
+  font-size:15px;
+  color:var(--text);
+  outline:none;
+  margin-bottom:12px;
+  transition:border-color 0.2s;
+}
+.inp:focus{border-color:var(--yellow);}
+.inp::placeholder{color:rgba(255,255,255,0.25);}
+select.inp{appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23FFD93D' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:40px;}
+select.inp option{background:#0A1628;}
+
+.btn-start {
+  width:100%;
+  padding:15px;
+  border-radius:50px;
+  background:var(--yellow);
+  color:var(--navy);
+  border:none;
+  font-family:'DM Sans',sans-serif;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  margin-top:4px;
+  transition:all 0.2s;
+}
+.btn-start:hover{background:#FFE566;}
+.btn-start:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-start:active{transform:scale(0.97);}
+
+.skip-txt {
+  text-align:center;
+  margin-top:12px;
+  font-size:13px;
+  color:var(--muted);
+  cursor:pointer;
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
+.skip-txt:hover{color:var(--text);}
+
+/* ── MIC PERM ── */
+.mic-btn {
+  background:rgba(255,217,61,0.1);
+  border:1.5px solid rgba(255,217,61,0.3);
+  border-radius:12px;
+  padding:12px 16px;
+  width:100%;
+  font-family:'DM Sans',sans-serif;
+  font-size:14px;
+  font-weight:500;
+  color:var(--yellow);
+  cursor:pointer;
+  margin-bottom:12px;
+  transition:all 0.2s;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.mic-btn:hover{background:rgba(255,217,61,0.18);}
+.mic-btn.done{background:rgba(74,222,128,0.1);border-color:rgba(74,222,128,0.3);color:var(--success);}
+
+/* Confetti */
+.conf-piece {
+  position:fixed;
+  pointer-events:none;
+  font-size:22px;
+  z-index:999;
+  animation:conf var(--d,1s) ease-out forwards;
+}
+@keyframes conf {
+  0%{transform:translate(0,0) rotate(0deg) scale(1);opacity:1;}
+  100%{transform:translate(var(--tx,0),var(--ty,200px)) rotate(var(--r,360deg)) scale(0.2);opacity:0;}
+}
+
+/* Ripple on world */
+.world-ripple {
+  position:absolute;
+  border-radius:50%;
+  border:2px solid rgba(255,217,61,0.5);
+  pointer-events:none;
+  animation:w-ripple 0.7s ease-out forwards;
+}
+@keyframes w-ripple {
+  0%{width:20px;height:20px;opacity:0.8;}
+  100%{width:120px;height:120px;opacity:0;}
+}
+
+/* ── CAMERA STRIP ── */
+.cam-strip {
+  flex-shrink:0;
+  height:80px;
+  background:rgba(10,22,40,0.97);
+  border-top:1px solid rgba(255,217,61,0.1);
+  display:flex;
+  align-items:center;
+  padding:8px 12px;
+  gap:10px;
+}
+
+.cam-thumb {
+  width:96px;
+  height:64px;
+  border-radius:8px;
+  overflow:hidden;
+  border:1.5px solid rgba(255,217,61,0.2);
+  flex-shrink:0;
+  background:#111;
+  position:relative;
+}
+
+.cam-thumb video {
+  width:100%;height:100%;
+  object-fit:cover;
+  transform:scaleX(-1);
+  display:block;
+}
+
+.cam-no {
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;
+}
+
+.rec-dot {
+  position:absolute;top:4px;left:4px;
+  width:6px;height:6px;border-radius:50%;
+  background:var(--danger);
+  animation:blink 0.9s step-end infinite;
+}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0;}}
+
+.strip-right {
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+}
+
+.clip-feed {
+  flex:1;
+  overflow:hidden;
+}
+
+.clip-feed-title {
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:4px;
+}
+
+.clip-item {
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-size:11px;
+  color:var(--text);
+  animation:slide-in 0.3s ease;
+  white-space:nowrap;
+  overflow:hidden;
+}
+@keyframes slide-in{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
+
+.clip-dot {
+  width:5px;height:5px;border-radius:50%;flex-shrink:0;
+}
+.dot-desire{background:var(--yellow);}
+.dot-threat{background:var(--danger);}
+.dot-calm{background:var(--success);}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <div class="logo">Dog<em>Say</em></div>
+  <div class="phase-pills">
+    <div class="pill active" id="p-attract">Attract</div>
+    <div class="pill" id="p-bone">Bone</div>
+    <div class="pill" id="p-tiger">Bear</div>
+    <div class="pill" id="p-done">Result</div>
+  </div>
+</div>
+
+<!-- MAIN ARENA -->
+<div class="arena-wrap" id="arena-wrap">
+
+  <!-- LIVING WORLD SVG -->
+  <svg id="world-svg" viewBox="0 0 400 320" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Sky gradient -->
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#2B6CB0"/>
+        <stop offset="60%" stop-color="#63B3ED"/>
+        <stop offset="100%" stop-color="#BEE3F8"/>
+      </linearGradient>
+      <!-- Ground gradient -->
+      <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#68A844"/>
+        <stop offset="100%" stop-color="#4A7A2E"/>
+      </linearGradient>
+      <!-- Near grass -->
+      <linearGradient id="grass-near" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#7DC452"/>
+        <stop offset="100%" stop-color="#5A9438"/>
+      </linearGradient>
+      <!-- Path -->
+      <linearGradient id="path-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#C8A96E"/>
+        <stop offset="100%" stop-color="#A88A52"/>
+      </linearGradient>
+      <!-- Sun glow -->
+      <radialGradient id="sun-glow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#FFE88A" stop-opacity="0.6"/>
+        <stop offset="100%" stop-color="#FFE88A" stop-opacity="0"/>
+      </radialGradient>
+      <!-- Tree shadow -->
+      <radialGradient id="tree-shadow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#000000" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+
+    <!-- SKY -->
+    <rect width="400" height="220" fill="url(#sky)"/>
+
+    <!-- SUN -->
+    <circle cx="340" cy="45" r="30" fill="url(#sun-glow)"/>
+    <circle cx="340" cy="45" r="18" fill="#FFE88A"/>
+    <circle cx="340" cy="45" r="14" fill="#FFF5B0"/>
+
+    <!-- CLOUDS -->
+    <g id="clouds" opacity="0.85">
+      <g>
+        <ellipse cx="80" cy="52" rx="36" ry="16" fill="white"/>
+        <ellipse cx="60" cy="58" rx="22" ry="13" fill="white"/>
+        <ellipse cx="102" cy="58" rx="20" ry="12" fill="white"/>
+        <ellipse cx="80" cy="62" rx="40" ry="12" fill="white"/>
+      </g>
+      <g>
+        <ellipse cx="230" cy="38" rx="28" ry="12" fill="white" opacity="0.9"/>
+        <ellipse cx="214" cy="44" rx="18" ry="10" fill="white" opacity="0.9"/>
+        <ellipse cx="248" cy="44" rx="16" ry="9" fill="white" opacity="0.9"/>
+        <ellipse cx="230" cy="48" rx="32" ry="9" fill="white" opacity="0.9"/>
+      </g>
+    </g>
+
+    <!-- FAR HILLS -->
+    <ellipse cx="100" cy="185" rx="130" ry="45" fill="#4A8C30"/>
+    <ellipse cx="320" cy="188" rx="120" ry="42" fill="#3D7A26"/>
+    <ellipse cx="200" cy="180" rx="100" ry="38" fill="#5A9E3A"/>
+
+    <!-- MID GROUND -->
+    <rect x="0" y="182" width="400" height="138" fill="url(#ground)"/>
+
+    <!-- PATH -->
+    <path d="M 160 320 Q 175 260 185 210 Q 190 190 200 185 Q 210 190 215 210 Q 225 260 240 320 Z" fill="url(#path-grad)" opacity="0.7"/>
+
+    <!-- NEAR GRASS PLANE -->
+    <rect x="0" y="240" width="400" height="80" fill="url(#grass-near)"/>
+
+    <!-- GRASS TUFTS - far -->
+    <g fill="#5A9438" opacity="0.6">
+      <ellipse cx="30" cy="245" rx="12" ry="4"/>
+      <ellipse cx="80" cy="243" rx="10" ry="3"/>
+      <ellipse cx="140" cy="246" rx="8" ry="3"/>
+      <ellipse cx="260" cy="244" rx="11" ry="4"/>
+      <ellipse cx="330" cy="247" rx="9" ry="3"/>
+      <ellipse cx="375" cy="245" rx="10" ry="3"/>
+    </g>
+
+    <!-- GRASS TUFTS - near -->
+    <g fill="#8FD460">
+      <path d="M 0 270 Q 10 260 20 270 Q 10 265 0 270"/>
+      <path d="M 35 268 Q 45 258 55 268 Q 45 263 35 268"/>
+      <path d="M 70 272 Q 80 261 90 272 Q 80 266 70 272"/>
+      <path d="M 110 269 Q 122 259 132 269 Q 122 264 110 269"/>
+      <path d="M 270 270 Q 280 260 290 270 Q 280 265 270 270"/>
+      <path d="M 310 268 Q 322 257 332 268 Q 322 262 310 268"/>
+      <path d="M 350 271 Q 362 261 372 271 Q 362 266 350 271"/>
+    </g>
+
+    <!-- TREE LEFT (far) -->
+    <g id="tree-left-far">
+      <ellipse cx="45" cy="213" rx="8" ry="3" fill="#2D1A0E" opacity="0.2"/>
+      <rect x="42" y="175" width="6" height="42" fill="#6B4226"/>
+      <ellipse cx="45" cy="168" rx="20" ry="22" fill="#2D7A1A"/>
+      <ellipse cx="36" cy="175" rx="14" ry="16" fill="#3D8C22"/>
+      <ellipse cx="54" cy="173" rx="13" ry="15" fill="#2D7A1A"/>
+      <ellipse cx="45" cy="163" rx="16" ry="14" fill="#4A9E2A"/>
+    </g>
+
+    <!-- TREE RIGHT (far) -->
+    <g id="tree-right-far">
+      <ellipse cx="358" cy="213" rx="8" ry="3" fill="#2D1A0E" opacity="0.2"/>
+      <rect x="355" y="177" width="6" height="40" fill="#6B4226"/>
+      <ellipse cx="358" cy="170" rx="18" ry="20" fill="#2D6E18"/>
+      <ellipse cx="349" cy="176" rx="12" ry="14" fill="#3D8220"/>
+      <ellipse cx="367" cy="174" rx="11" ry="13" fill="#2D6E18"/>
+      <ellipse cx="358" cy="166" rx="14" ry="13" fill="#479628"/>
+    </g>
+
+    <!-- TREE LEFT (near) -->
+    <g id="tree-left-near">
+      <ellipse cx="60" cy="250" rx="14" ry="5" fill="#1A0E05" opacity="0.25"/>
+      <rect x="56" y="200" width="8" height="54" fill="#7A4E2E"/>
+      <rect x="54" y="225" width="12" height="30" fill="#8B5E3C"/>
+      <ellipse cx="60" cy="192" rx="28" ry="30" fill="#2D7A1A"/>
+      <ellipse cx="46" cy="202" rx="20" ry="22" fill="#3A8E22"/>
+      <ellipse cx="74" cy="200" rx="19" ry="20" fill="#2D7A1A"/>
+      <ellipse cx="60" cy="186" rx="24" ry="20" fill="#4A9E2A"/>
+      <ellipse cx="52" cy="195" rx="14" ry="12" fill="#5AAE32"/>
+      <ellipse cx="68" cy="193" rx="13" ry="11" fill="#4A9E2A"/>
+    </g>
+
+    <!-- TREE RIGHT (near) -->
+    <g id="tree-right-near">
+      <ellipse cx="342" cy="250" rx="14" ry="5" fill="#1A0E05" opacity="0.25"/>
+      <rect x="338" y="202" width="8" height="52" fill="#7A4E2E"/>
+      <rect x="336" y="228" width="12" height="26" fill="#8B5E3C"/>
+      <ellipse cx="342" cy="194" rx="26" ry="28" fill="#267018"/>
+      <ellipse cx="328" cy="204" rx="18" ry="20" fill="#337E1E"/>
+      <ellipse cx="356" cy="202" rx="17" ry="19" fill="#267018"/>
+      <ellipse cx="342" cy="188" rx="22" ry="18" fill="#3E9224"/>
+      <ellipse cx="334" cy="197" rx="13" ry="11" fill="#4AA22C"/>
+      <ellipse cx="350" cy="195" rx="12" ry="10" fill="#3E9224"/>
+    </g>
+
+    <!-- FLOWERS near ground -->
+    <g id="flowers">
+      <circle cx="100" cy="258" r="3" fill="#FF6B9D"/>
+      <circle cx="100" cy="258" r="2" fill="#FFE066"/>
+      <circle cx="115" cy="262" r="2.5" fill="#FF9B3E"/>
+      <circle cx="115" cy="262" r="1.5" fill="#FFF"/>
+      <circle cx="285" cy="260" r="3" fill="#A78BFA"/>
+      <circle cx="285" cy="260" r="2" fill="#FFE066"/>
+      <circle cx="298" cy="255" r="2.5" fill="#FF6B9D"/>
+      <circle cx="298" cy="255" r="1.5" fill="#FFF"/>
+    </g>
+
+    <!-- BONE stimulus (SVG drawn) -->
+    <g id="bone-stim" opacity="0" transform="translate(200,160) scale(0.4)">
+      <!-- Bone shape -->
+      <g fill="#F5E6C8" stroke="#C8A870" stroke-width="3">
+        <!-- Main shaft -->
+        <rect x="-60" y="-12" width="120" height="24" rx="12"/>
+        <!-- Left top knob -->
+        <circle cx="-58" cy="-18" r="18"/>
+        <!-- Left bot knob -->
+        <circle cx="-58" cy="18" r="18"/>
+        <!-- Right top knob -->
+        <circle cx="58" cy="-18" r="18"/>
+        <!-- Right bot knob -->
+        <circle cx="58" cy="18" r="18"/>
+      </g>
+      <!-- Shine -->
+      <ellipse cx="-45" cy="-22" rx="8" ry="4" fill="white" opacity="0.5" transform="rotate(-20,-45,-22)"/>
+    </g>
+
+    <!-- BEAR stimulus -->
+    <g id="bear-stim" opacity="0" transform="translate(200,100) scale(0.35)">
+      <!-- Shadow -->
+      <ellipse cx="0" cy="95" rx="55" ry="12" fill="#1A0A00" opacity="0.3"/>
+      <!-- Body -->
+      <ellipse cx="0" cy="50" rx="48" ry="55" fill="#5C3A1E"/>
+      <!-- Body highlight -->
+      <ellipse cx="-10" cy="30" rx="22" ry="28" fill="#7A5030" opacity="0.4"/>
+      <!-- Head -->
+      <circle cx="0" cy="-30" r="42" fill="#5C3A1E"/>
+      <!-- Head highlight -->
+      <ellipse cx="-8" cy="-42" rx="18" ry="14" fill="#7A5030" opacity="0.4"/>
+      <!-- Ears -->
+      <circle cx="-32" cy="-62" r="16" fill="#5C3A1E"/>
+      <circle cx="-32" cy="-62" r="9" fill="#7A4A2A"/>
+      <circle cx="32" cy="-62" r="16" fill="#5C3A1E"/>
+      <circle cx="32" cy="-62" r="9" fill="#7A4A2A"/>
+      <!-- Snout -->
+      <ellipse cx="0" cy="-18" rx="22" ry="16" fill="#7A5030"/>
+      <ellipse cx="0" cy="-14" rx="16" ry="10" fill="#9A6840"/>
+      <!-- Nose -->
+      <ellipse cx="0" cy="-24" rx="10" ry="7" fill="#2A1A0A"/>
+      <ellipse cx="-3" cy="-26" rx="3" ry="2" fill="white" opacity="0.6"/>
+      <!-- Eyes -->
+      <circle cx="-16" cy="-38" r="8" fill="#1A0A00"/>
+      <circle cx="16" cy="-38" r="8" fill="#1A0A00"/>
+      <circle cx="-14" cy="-40" r="3" fill="white" opacity="0.7"/>
+      <circle cx="18" cy="-40" r="3" fill="white" opacity="0.7"/>
+      <!-- Mouth -->
+      <path d="M -8 -8 Q 0 -2 8 -8" stroke="#2A1A0A" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <!-- Arms -->
+      <ellipse cx="-52" cy="30" rx="16" ry="30" fill="#5C3A1E" transform="rotate(-15,-52,30)"/>
+      <ellipse cx="52" cy="30" rx="16" ry="30" fill="#5C3A1E" transform="rotate(15,52,30)"/>
+      <!-- Claws left -->
+      <g stroke="#3A2010" stroke-width="2" fill="none" transform="translate(-60,55)">
+        <path d="M -8,0 Q -12,8 -10,14"/>
+        <path d="M 0,0 Q -2,10 2,14"/>
+        <path d="M 8,0 Q 10,8 8,14"/>
+      </g>
+      <!-- Claws right -->
+      <g stroke="#3A2010" stroke-width="2" fill="none" transform="translate(60,55)">
+        <path d="M -8,0 Q -10,8 -8,14"/>
+        <path d="M 0,0 Q 2,10 -2,14"/>
+        <path d="M 8,0 Q 12,8 10,14"/>
+      </g>
+      <!-- Legs -->
+      <ellipse cx="-28" cy="90" rx="20" ry="14" fill="#4A2E14"/>
+      <ellipse cx="28" cy="90" rx="20" ry="14" fill="#4A2E14"/>
+    </g>
+
+    <!-- DUST particles (for bear approach) -->
+    <g id="dust-particles" opacity="0">
+      <circle cx="150" cy="230" r="4" fill="#C8A870" opacity="0.5"/>
+      <circle cx="165" cy="240" r="3" fill="#C8A870" opacity="0.4"/>
+      <circle cx="250" cy="232" r="4" fill="#C8A870" opacity="0.5"/>
+      <circle cx="238" cy="241" r="3" fill="#C8A870" opacity="0.4"/>
+      <circle cx="200" cy="245" r="5" fill="#C8A870" opacity="0.3"/>
+    </g>
+
+    <!-- FOOTPRINT TRAIL -->
+    <g id="footprints" opacity="0">
+      <ellipse cx="180" cy="270" rx="5" ry="3" fill="#4A7A2E" transform="rotate(-10,180,270)"/>
+      <ellipse cx="220" cy="266" rx="5" ry="3" fill="#4A7A2E" transform="rotate(10,220,266)"/>
+      <ellipse cx="185" cy="255" rx="5" ry="3" fill="#4A7A2E" transform="rotate(-8,185,255)"/>
+      <ellipse cx="215" cy="251" rx="5" ry="3" fill="#4A7A2E" transform="rotate(8,215,251)"/>
+    </g>
+
+    <!-- FOREGROUND GRASS BLADES -->
+    <g fill="#8FD460">
+      <path d="M 0 320 L 5 295 L 10 320"/>
+      <path d="M 18 320 L 22 300 L 26 320"/>
+      <path d="M 38 320 L 44 290 L 50 320"/>
+      <path d="M 72 320 L 76 298 L 80 320"/>
+      <path d="M 95 320 L 100 292 L 105 320"/>
+      <path d="M 152 320 L 156 302 L 160 320"/>
+      <path d="M 240 320 L 244 302 L 248 320"/>
+      <path d="M 295 320 L 300 292 L 305 320"/>
+      <path d="M 320 320 L 326 298 L 332 320"/>
+      <path d="M 348 320 L 352 294 L 356 320"/>
+      <path d="M 370 320 L 376 300 L 382 320"/>
+      <path d="M 390 320 L 396 296 L 400 320"/>
+    </g>
+
+    <!-- BIRDS (small, far away) -->
+    <g id="birds" fill="none" stroke="#1A3A6A" stroke-width="1.2" stroke-linecap="round">
+      <path d="M 130 75 Q 134 71 138 75"/>
+      <path d="M 145 68 Q 149 64 153 68"/>
+      <path d="M 158 72 Q 162 68 166 72"/>
+    </g>
+  </svg>
+
+  <!-- COUNTDOWN -->
+  <div class="cd-badge" id="cd-badge">—</div>
+
+  <!-- INSTRUCTION -->
+  <div class="instruction" id="instruction">
+    Show this screen to your dog 🐕
+  </div>
+
+  <!-- VICTORY -->
+  <div class="victory" id="victory">
+    <div class="victory-icon" id="v-icon">🎉</div>
+    <div class="victory-txt" id="v-txt">Good dog!</div>
+  </div>
+
+  <!-- RESULT PANEL -->
+  <div class="result-panel" id="result-panel">
+    <div class="result-icon" id="r-icon">🎉</div>
+    <div class="result-title" id="r-title">Session complete!</div>
+    <p class="result-sub" id="r-sub">Great session!</p>
+    <div class="result-stats">
+      <div class="stat-box">
+        <div class="stat-n" id="rs-clips">0</div>
+        <div class="stat-l">clips captured</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-n" id="rs-barks">0</div>
+        <div class="stat-l">bark events</div>
+      </div>
+    </div>
+    <button class="btn-again" onclick="restartSession()">🔄 Play again</button>
+    <button class="btn-again" style="background:transparent;border:1.5px solid rgba(255,255,255,0.2);color:var(--muted);margin-top:0;" onclick="showSetup()">⚙️ Change dog</button>
+  </div>
+
+  <!-- SETUP PANEL -->
+  <div class="setup-panel" id="setup-panel">
+    <div class="setup-icon">🐾</div>
+    <h1 class="setup-h">Let your dog<br><em>find its voice</em></h1>
+    <p class="setup-sub">A daily game where your dog discovers that barking changes the world on screen.</p>
+    <div class="setup-form">
+      <button class="mic-btn" id="mic-btn" onclick="requestMic()">🎙️ Allow microphone — required for bark detection</button>
+      <input class="inp" type="text" id="dog-name" placeholder="Dog's name (e.g. Max)" maxlength="20">
+      <select class="inp" id="dog-breed">
+        <option value="">Breed (optional)</option>
+        <option>Labrador Retriever</option>
+        <option>Golden Retriever</option>
+        <option>German Shepherd</option>
+        <option>French Bulldog</option>
+        <option>Poodle</option>
+        <option>Beagle</option>
+        <option>Border Collie</option>
+        <option>Husky</option>
+        <option>Mixed / Other</option>
+      </select>
+      <button class="btn-start" id="start-btn" onclick="startSession()">🐕 Start Playing</button>
+      <div class="skip-txt" onclick="skipSetup()">Skip — play as guest</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- CAMERA STRIP -->
+<div class="cam-strip">
+  <div class="cam-thumb">
+    <video id="vid" autoplay playsinline muted></video>
+    <div class="cam-no" id="cam-no">📷</div>
+    <div class="rec-dot hidden" id="rec-dot"></div>
+  </div>
+  <div class="strip-right">
+    <!-- Bark meter -->
+    <div class="bark-meter">
+      <div class="bark-icon" id="bark-icon">🔇</div>
+      <div class="bark-track">
+        <div class="bark-fill" id="bark-fill"></div>
+      </div>
+      <div class="bark-label" id="bark-val">0</div>
+    </div>
+    <!-- Clip feed -->
+    <div class="clip-feed">
+      <div id="clip-feed-items">
+        <div class="clip-item"><div class="clip-dot dot-calm"></div><span style="color:var(--muted);font-size:11px;">Waiting for session...</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const S = {
+  dogName:'Dog', breed:'', micEnabled:false,
+  stream:null, audioCtx:null, analyser:null,
+  intensity:0, noiseFloor:0,
+  phase:'setup',
+  boneProx:0, bearDist:100,
+  clips:[], barkCount:0,
+  cdTimer:null, animFrame:null,
+  sessionNum: +localStorage.getItem('ds_n')||0,
+  streak: +localStorage.getItem('ds_s')||0,
+};
+
+// SVG elements
+const boneSVG = document.getElementById('bone-stim');
+const bearSVG = document.getElementById('bear-stim');
+const dustSVG = document.getElementById('dust-particles');
+const cloudG   = document.getElementById('clouds');
+
+// ═══════════════════════════════════════════
+// SETUP
+// ═══════════════════════════════════════════
+async function requestMic() {
+  try {
+    S.stream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+    document.getElementById('vid').srcObject = S.stream;
+    document.getElementById('cam-no').style.display='none';
+    document.getElementById('rec-dot').classList.remove('hidden');
+    S.micEnabled = true;
+    setupAnalyser(S.stream);
+    const mb = document.getElementById('mic-btn');
+    mb.textContent = '✅ Microphone ready';
+    mb.className = 'mic-btn done';
+  } catch(e) {
+    try {
+      S.stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      S.micEnabled = true;
+      setupAnalyser(S.stream);
+      const mb = document.getElementById('mic-btn');
+      mb.textContent = '✅ Microphone ready (no camera)';
+      mb.className = 'mic-btn done';
+    } catch(e2) {
+      document.getElementById('mic-btn').textContent = '⚠️ Mic unavailable — bark detection off';
+    }
+  }
+}
+
+function setupAnalyser(stream) {
+  try {
+    S.audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    S.analyser = S.audioCtx.createAnalyser();
+    S.analyser.fftSize = 512;
+    S.analyser.smoothingTimeConstant = 0.25;
+    S.audioCtx.createMediaStreamSource(stream).connect(S.analyser);
+    setTimeout(calibrateNoise, 1200);
+    startWaveform();
+  } catch(e){}
+}
+
+function calibrateNoise() {
+  if(!S.analyser) return;
+  const buf = new Uint8Array(S.analyser.frequencyBinCount);
+  S.analyser.getByteFrequencyData(buf);
+  let sum=0;
+  for(let i=0;i<buf.length;i++) sum+=buf[i];
+  S.noiseFloor = sum/buf.length + 12;
+}
+
+function startSession() {
+  S.dogName = document.getElementById('dog-name').value.trim()||'Dog';
+  S.breed   = document.getElementById('dog-breed').value||'';
+  beginGame();
+}
+
+function skipSetup() {
+  S.dogName = 'Dog';
+  beginGame();
+}
+
+function showSetup() {
+  hideAll();
+  document.getElementById('setup-panel').style.display='flex';
+  S.phase = 'setup';
+}
+
+function hideAll() {
+  document.getElementById('setup-panel').style.display='none';
+  document.getElementById('result-panel').classList.remove('show');
+  document.getElementById('victory').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════
+// WAVEFORM / BARK DETECTION
+// ═══════════════════════════════════════════
+function startWaveform() {
+  if(!S.analyser) return;
+  const buf = new Uint8Array(S.analyser.frequencyBinCount);
+
+  function tick() {
+    S.animFrame = requestAnimationFrame(tick);
+    S.analyser.getByteFrequencyData(buf);
+    const sr = S.audioCtx.sampleRate;
+    const bs = sr/S.analyser.fftSize;
+    const lo = Math.floor(300/bs), hi = Math.floor(2200/bs);
+    let e=0;
+    for(let i=lo;i<Math.min(hi,buf.length);i++) e+=buf[i];
+    e /= (hi-lo);
+    const raw = Math.max(0, e - S.noiseFloor);
+    S.intensity = Math.min(100, raw * 2.8);
+
+    // UI
+    document.getElementById('bark-fill').style.width = S.intensity+'%';
+    document.getElementById('bark-val').textContent = Math.round(S.intensity);
+    document.getElementById('bark-icon').textContent =
+      S.intensity > 70 ? '🔊' : S.intensity > 35 ? '🔉' : '🔇';
+
+    // Drive stimuli
+    if(S.phase==='bone') driveBone();
+    if(S.phase==='bear') driveBear();
+  }
+  tick();
+}
+
+// ═══════════════════════════════════════════
+// GAME FLOW
+// ═══════════════════════════════════════════
+function beginGame() {
+  hideAll();
+  S.clips=[]; S.barkCount=0;
+  S.boneProx=0; S.bearDist=100;
+  resetBone(); resetBear();
+  phaseAttract();
+}
+
+function phaseAttract() {
+  S.phase='attract';
+  setPills(0);
+  boneSVG.setAttribute('opacity','0');
+  bearSVG.setAttribute('opacity','0');
+  dustSVG.setAttribute('opacity','0');
+  setInstruction(`👀 Show this screen to ${S.dogName}!`);
+  setCd('—');
+  playAttractSound();
+  animateClouds();
+  startCd(8,'attracting...',()=>phaseBoue());
+}
+
+function phaseBoue() {
+  S.phase='bone';
+  setPills(1);
+  setInstruction(`🦴 ${S.dogName} — bark to call the bone closer!`);
+  showBone();
+  document.getElementById('rec-dot').classList.remove('hidden');
+  startCd(25,'bone...',()=>{
+    if(S.boneProx<95){S.boneProx=100; updateBone(100);}
+    showVictory('bone');
+    setTimeout(()=>phasePause('bear'),2200);
+  });
+}
+
+function phasePause(next) {
+  S.phase='pause';
+  // Close any open bark window — flush final clip if valid
+  if(barkWindow.active) {
+    const dur = Date.now() - barkWindow.start;
+    if(dur >= 180) commitClip(barkWindow.label, barkWindow.peakIntensity, dur);
+    barkWindow.active = false;
+    barkWindow.peakIntensity = 0;
+  }
+  boneSVG.setAttribute('opacity','0');
+  bearSVG.setAttribute('opacity','0');
+  dustSVG.setAttribute('opacity','0');
+  setInstruction('😌 Good dog — take a breath...');
+  setCd('—');
+  document.getElementById('victory').classList.remove('show');
+  startCd(4,'resting...',()=>{
+    if(next==='bear') phaseBear();
+    else finishGame();
+  });
+}
+
+function phaseBear() {
+  S.phase='bear';
+  S.bearDist=100;
+  setPills(2);
+  setInstruction(`🐻 ${S.dogName} — bark to chase it away!`);
+  showBear(100);
+  playBearApproachSound();
+  startCd(25,'bear...',()=>{
+    if(S.bearDist>5){S.bearDist=0; updateBear(0);}
+    showVictory('bear');
+    setTimeout(()=>phasePause('done'),2200);
+  });
+}
+
+function finishGame() {
+  S.phase='result';
+  clearCd();
+  setPills(3);
+  boneSVG.setAttribute('opacity','0');
+  bearSVG.setAttribute('opacity','0');
+  dustSVG.setAttribute('opacity','0');
+  document.getElementById('victory').classList.remove('show');
+
+  // Update streak
+  const today = new Date().toDateString();
+  if(localStorage.getItem('ds_d')!==today){
+    S.streak++; S.sessionNum++;
+    localStorage.setItem('ds_s',S.streak);
+    localStorage.setItem('ds_n',S.sessionNum);
+    localStorage.setItem('ds_d',today);
+  }
+
+  const goodClips = S.clips.length;
+  const reacted = S.barkCount > 3;
+
+  document.getElementById('r-icon').textContent = reacted ? '🎉' : '🌱';
+  document.getElementById('r-title').textContent = reacted
+    ? `${S.dogName} spoke today!`
+    : `${S.dogName} watched today`;
+  document.getElementById('r-sub').textContent = reacted
+    ? `${goodClips} voice clips captured. ${S.dogName}'s language is building.`
+    : `${S.dogName} is still finding their voice. Every session matters — keep coming back.`;
+  document.getElementById('rs-clips').textContent = goodClips;
+  document.getElementById('rs-barks').textContent = S.barkCount;
+
+  document.getElementById('result-panel').classList.add('show');
+  if(reacted) spawnConfetti();
+}
+
+function restartSession() {
+  document.getElementById('result-panel').classList.remove('show');
+  beginGame();
+}
+
+// ═══════════════════════════════════════════
+// BONE ANIMATION
+// ═══════════════════════════════════════════
+let lastBark = 0;
+
+function showBone() {
+  S.boneProx=0;
+  boneSVG.setAttribute('opacity','1');
+  updateBone(0);
+}
+
+function resetBone() {
+  boneSVG.setAttribute('opacity','0');
+  boneSVG.setAttribute('transform','translate(200,160) scale(0.4)');
+}
+
+function driveBone() {
+  if(S.intensity > 18) {
+    const spd = S.intensity>78?3.2:S.intensity>55?1.8:S.intensity>35?0.9:0.35;
+    S.boneProx = Math.min(100, S.boneProx+spd);
+    if(S.intensity>25) processBarkSignal('desire_food');
+    if(S.intensity>45 && Math.random()<0.12) spawnWorldRipple();
+  } else {
+    S.boneProx = Math.max(0, S.boneProx-0.25);
+  }
+  updateBone(S.boneProx);
+  if(S.boneProx>=100 && S.phase==='bone') {
+    S.phase='bone-win';
+    clearCd();
+    showVictory('bone');
+    spawnConfetti();
+    setTimeout(()=>phasePause('bear'),2500);
+  }
+}
+
+function updateBone(p) {
+  const sc = 0.4 + (p/100)*1.4;
+  const ty = 160 - (p/100)*45;
+  const wobble = Math.sin(Date.now()/180)*3;
+  const rot = Math.sin(Date.now()/220)*8;
+  boneSVG.setAttribute('transform',
+    `translate(200,${ty+wobble}) scale(${sc}) rotate(${rot})`);
+
+  const glow = Math.round(0.3 + (p/100)*0.6 * 100)/100;
+  boneSVG.style.filter = `drop-shadow(0 0 ${6+p/8}px rgba(255,217,61,${glow}))`;
+}
+
+// ═══════════════════════════════════════════
+// BEAR ANIMATION
+// ═══════════════════════════════════════════
+function showBear(dist) {
+  bearSVG.setAttribute('opacity','1');
+  dustSVG.setAttribute('opacity','0.8');
+  updateBear(dist);
+}
+
+function resetBear() {
+  bearSVG.setAttribute('opacity','0');
+  dustSVG.setAttribute('opacity','0');
+}
+
+function driveBear() {
+  if(S.intensity > 18) {
+    const spd = S.intensity>78?4.0:S.intensity>55?2.2:S.intensity>35?1.0:0.4;
+    S.bearDist = Math.max(0, S.bearDist-spd);
+    if(S.intensity>25) processBarkSignal('alert_threat');
+    if(S.intensity>45 && Math.random()<0.12) spawnWorldRipple();
+  } else {
+    // Bear creeps closer on silence
+    S.bearDist = Math.min(100, S.bearDist+0.2);
+  }
+  updateBear(S.bearDist);
+  if(S.bearDist<=0 && S.phase==='bear') {
+    S.phase='bear-win';
+    clearCd();
+    bearSVG.setAttribute('opacity','0');
+    dustSVG.setAttribute('opacity','0');
+    showVictory('bear');
+    spawnConfetti();
+    setTimeout(()=>phasePause('done'),2500);
+  }
+}
+
+function updateBear(dist) {
+  // dist 100=tiny far, 0=huge close
+  const progress = (100-dist)/100;
+  const sc = 0.15 + progress*0.65;
+  const ty = 240 - progress*130;
+  const opacity = dist<8 ? dist/8 : 1;
+  const wobble = S.intensity>30 ? Math.sin(Date.now()/120)*4 : 0;
+  const tilt = S.intensity>50 ? Math.sin(Date.now()/200)*6 : 0;
+
+  bearSVG.setAttribute('transform',
+    `translate(${200+wobble},${ty}) scale(${sc}) rotate(${tilt})`);
+  bearSVG.setAttribute('opacity', opacity.toString());
+
+  // Dust more visible as bear approaches
+  dustSVG.setAttribute('opacity', (0.3+progress*0.7).toString());
+
+  // Bear gets red-tinted when close
+  if(dist < 30) {
+    bearSVG.style.filter = `drop-shadow(0 0 ${20-dist/2}px rgba(255,50,0,0.6))`;
+    document.getElementById('instruction').style.borderColor = 'rgba(255,71,87,0.5)';
+  } else {
+    bearSVG.style.filter = 'none';
+    document.getElementById('instruction').style.borderColor = 'rgba(255,217,61,0.2)';
+  }
+
+  // Update instruction urgency
+  if(S.phase==='bear') {
+    if(dist>70) setInstruction(`🐻 ${S.dogName} — bark to stop it!`);
+    else if(dist>40) setInstruction(`⚠️ Keep barking! It's hesitating!`);
+    else if(dist>15) setInstruction(`🚨 BARK HARDER — almost gone!`);
+    else setInstruction(`💪 ${S.dogName} — one more bark!!`);
+  }
+}
+
+// ═══════════════════════════════════════════
+// SOUNDS
+// ═══════════════════════════════════════════
+function playAttractSound() {
+  try {
+    const ctx = new(window.AudioContext||window.webkitAudioContext)();
+    const play = (freq,t,dur) => {
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value=freq; o.type='sine';
+      g.gain.setValueAtTime(0.25,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      o.start(t); o.stop(t+dur);
+    };
+    const now=ctx.currentTime;
+    play(880,now,0.3);
+    play(1100,now+0.35,0.3);
+    play(1320,now+0.7,0.4);
+  } catch(e){}
+}
+
+function playBearApproachSound() {
+  try {
+    const ctx = new(window.AudioContext||window.webkitAudioContext)();
+    const now=ctx.currentTime;
+    // Low rumble
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type='sawtooth'; o.frequency.value=80;
+    o.frequency.linearRampToValueAtTime(60,now+1.5);
+    g.gain.setValueAtTime(0.0,now);
+    g.gain.linearRampToValueAtTime(0.15,now+0.3);
+    g.gain.linearRampToValueAtTime(0.0,now+2);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(now); o.stop(now+2);
+    // High growl accent
+    const o2=ctx.createOscillator(), g2=ctx.createGain();
+    o2.type='sawtooth'; o2.frequency.value=200;
+    g2.gain.setValueAtTime(0,now+0.2);
+    g2.gain.linearRampToValueAtTime(0.08,now+0.5);
+    g2.gain.linearRampToValueAtTime(0,now+1.2);
+    o2.connect(g2); g2.connect(ctx.destination);
+    o2.start(now+0.2); o2.stop(now+1.5);
+  } catch(e){}
+}
+
+// ═══════════════════════════════════════════
+// QUALITY GATE — only keep verified clips
+// ═══════════════════════════════════════════
+
+// Sliding window to measure bark duration
+const barkWindow = { start:0, active:false, label:null, peakIntensity:0 };
+let lastBarkRecord = 0;
+
+function processBarkSignal(label) {
+  const now = Date.now();
+  const INTENSITY_MIN  = 32;   // must be above noise by this much
+  const INTENSITY_GOOD = 50;   // SILVER threshold
+  const INTENSITY_GOLD = 72;   // GOLD threshold
+  const DURATION_MIN   = 180;  // ms — ignore clicks and taps
+  const DURATION_MAX   = 8000; // ms — ignore sustained ambient noise
+  const COOLDOWN       = 1000; // ms between clips — prevent duplicates
+
+  // Must be during active stimulus window
+  if(S.phase !== 'bone' && S.phase !== 'bear') return;
+
+  // Must be above minimum intensity
+  if(S.intensity < INTENSITY_MIN) {
+    // If we were tracking a bark, close the window
+    if(barkWindow.active) {
+      const duration = now - barkWindow.start;
+      if(duration >= DURATION_MIN && duration <= DURATION_MAX) {
+        commitClip(barkWindow.label, barkWindow.peakIntensity, duration);
+      }
+      barkWindow.active = false;
+      barkWindow.peakIntensity = 0;
+    }
+    return;
+  }
+
+  // Start or continue bark window
+  if(!barkWindow.active) {
+    barkWindow.active = true;
+    barkWindow.start = now;
+    barkWindow.label = label;
+    barkWindow.peakIntensity = S.intensity;
+  } else {
+    // Update peak within this bark event
+    if(S.intensity > barkWindow.peakIntensity) {
+      barkWindow.peakIntensity = S.intensity;
+    }
+    // Auto-close very long events (ambient noise)
+    if(now - barkWindow.start > DURATION_MAX) {
+      barkWindow.active = false;
+      barkWindow.peakIntensity = 0;
+    }
+  }
+}
+
+function commitClip(label, peakIntensity, durationMs) {
+  const now = Date.now();
+  const COOLDOWN = 1000;
+  if(now - lastBarkRecord < COOLDOWN) return;
+  lastBarkRecord = now;
+
+  // FILTER 1: minimum intensity
+  if(peakIntensity < 32) return;
+
+  // FILTER 2: must be during active stimulus (context verification)
+  const validPhase = (label === 'desire_food' && (S.phase === 'bone'))
+                  || (label === 'alert_threat' && (S.phase === 'bear'));
+  if(!validPhase) return;
+
+  // FILTER 3: duration check (not a tap, not ambient noise)
+  if(durationMs < 180 || durationMs > 8000) return;
+
+  // FILTER 4: frequency confirmation (already done via analyser range)
+  // The analyser only measures 350-2200Hz so non-dog sounds mostly filtered
+
+  // ASSIGN TIER
+  let tier;
+  if(peakIntensity >= 72)      tier = 'GOLD';
+  else if(peakIntensity >= 50) tier = 'SILVER';
+  else                          tier = 'DISCARD';  // below SILVER = discard
+
+  // DISCARD low quality — don't store at all
+  if(tier === 'DISCARD') return;
+
+  // CONFIDENCE SCORE
+  // stimulus_context(0.40) + intensity_quality(0.35) + duration_quality(0.25)
+  const intensityScore  = Math.min(1, peakIntensity / 100);
+  const durationScore   = durationMs > 300 && durationMs < 3000 ? 1.0
+                        : durationMs > 180 ? 0.7 : 0.4;
+  const contextScore    = 1.0; // guaranteed — we checked phase above
+  const confidence = Math.round(
+    (contextScore * 0.40 + intensityScore * 0.35 + durationScore * 0.25) * 100
+  ) / 100;
+
+  // STORE — only Gold and Silver with acceptable confidence
+  if(confidence < 0.60) return;
+
+  S.barkCount++;
+  S.clips.push({
+    label,
+    tier,
+    confidence,
+    peakIntensity: Math.round(peakIntensity),
+    durationMs:    Math.round(durationMs),
+    phase:         S.phase,
+    ts:            now,
+    dogName:       S.dogName,
+    breed:         S.breed,
+    // In production: upload audio blob here
+    // For MVP: metadata only, no raw audio stored for guests
+  });
+
+  const tag = label.includes('desire') ? 'desire' : 'threat';
+  addClipFeed(label.replace(/_/g,' '), tag, tier, confidence);
+}
+
+function addClipFeed(label, tag, tier, conf) {
+  const feed = document.getElementById('clip-feed-items');
+  const waiting = feed.querySelector('span');
+  if(waiting && waiting.textContent.includes('Waiting')) waiting.closest('.clip-item')?.remove();
+  const d = document.createElement('div');
+  d.className = 'clip-item';
+  d.innerHTML = `<div class="clip-dot dot-${tag}"></div><span>${label}</span><span style="margin-left:auto;font-size:10px;color:${tier==='GOLD'?'var(--yellow)':'var(--muted)'}">${tier} ${Math.round(conf*100)}%</span>`;
+  feed.insertBefore(d, feed.firstChild);
+  if(feed.children.length > 4) feed.lastChild.remove();
+}
+
+// ═══════════════════════════════════════════
+// VICTORY
+// ═══════════════════════════════════════════
+function showVictory(type) {
+  const v=document.getElementById('victory');
+  document.getElementById('v-icon').textContent = type==='bone'?'🦴':'🏆';
+  document.getElementById('v-txt').textContent = type==='bone'
+    ? `${S.dogName} called the bone!`
+    : `${S.dogName} drove it away!`;
+  v.classList.add('show');
+  playVictorySound();
+}
+
+function playVictorySound() {
+  try {
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const now=ctx.currentTime;
+    [[523,0],[659,0.15],[784,0.3],[1047,0.45]].forEach(([f,t])=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.frequency.value=f; o.type='sine';
+      g.gain.setValueAtTime(0.2,now+t);
+      g.gain.exponentialRampToValueAtTime(0.001,now+t+0.35);
+      o.connect(g);g.connect(ctx.destination);
+      o.start(now+t);o.stop(now+t+0.4);
+    });
+  } catch(e){}
+}
+
+// ═══════════════════════════════════════════
+// COUNTDOWN
+// ═══════════════════════════════════════════
+function startCd(secs,label,done) {
+  clearCd();
+  let s=secs;
+  setCd(s);
+  S.cdTimer=setInterval(()=>{
+    s--;
+    setCd(s);
+    if(s<=0){clearCd();done();}
+  },1000);
+}
+
+function clearCd() {
+  if(S.cdTimer){clearInterval(S.cdTimer);S.cdTimer=null;}
+}
+
+function setCd(n) {
+  const b=document.getElementById('cd-badge');
+  b.textContent=n;
+  b.className='cd-badge'+(n<=5&&n>0?' urgent':'');
+}
+
+// ═══════════════════════════════════════════
+// PILLS
+// ═══════════════════════════════════════════
+function setPills(active) {
+  ['attract','bone','tiger','done'].forEach((id,i)=>{
+    const el=document.getElementById('p-'+id);
+    if(!el) return;
+    el.className='pill'+(i<active?' done':i===active?' active':'');
+  });
+}
+
+// ═══════════════════════════════════════════
+// EFFECTS
+// ═══════════════════════════════════════════
+function setInstruction(txt) {
+  document.getElementById('instruction').textContent=txt;
+}
+
+function spawnWorldRipple() {
+  const wrap=document.getElementById('arena-wrap');
+  const r=document.createElement('div');
+  r.className='world-ripple';
+  r.style.cssText=`left:${35+Math.random()*30}%;top:${40+Math.random()*20}%;transform:translate(-50%,-50%);`;
+  wrap.appendChild(r);
+  setTimeout(()=>r.remove(),800);
+}
+
+function spawnConfetti() {
+  const em=['🎉','🦴','🐾','⭐','✨','🎊'];
+  for(let i=0;i<12;i++){
+    const e=document.createElement('div');
+    e.className='conf-piece';
+    e.textContent=em[i%em.length];
+    e.style.cssText=`left:${20+Math.random()*60}%;top:30%;--tx:${(Math.random()-0.5)*300}px;--ty:${-200-Math.random()*200}px;--r:${(Math.random()-0.5)*720}deg;--d:${0.7+Math.random()*0.6}s;animation-delay:${i*0.05}s`;
+    document.body.appendChild(e);
+    setTimeout(()=>e.remove(),1500);
+  }
+}
+
+// Animate clouds slowly
+function animateClouds() {
+  let x=0;
+  function tick(){
+    x+=0.012;
+    cloudG.setAttribute('transform',`translate(${Math.sin(x)*8},${Math.sin(x*0.7)*3})`);
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+// Start with setup visible
+document.getElementById('setup-panel').style.display='flex';
+document.getElementById('result-panel').classList.remove('show');
+
+// Animate bone continuously
+(function boneLoop(){
+  requestAnimationFrame(boneLoop);
+  if(S.phase==='bone'||S.phase==='bone-win') updateBone(S.boneProx);
+  if(S.phase==='bear'||S.phase==='bear-win') updateBear(S.bearDist);
+})();
+</script>
+</body>
+</html>
